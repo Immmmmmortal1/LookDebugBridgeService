@@ -1,17 +1,21 @@
 # LookDebugBridge
 
-`LookDebugBridge` is a Debug-only iOS bridge for AI/script-driven UI inspection and control.
+`LookDebugBridge` is a Debug-only iOS bridge for AI/script-driven UI inspection, control, and temporary App logs.
 
 It exposes a small local HTTP API from the running Debug app:
 
 ```text
 GET  /ping
 GET  /debug/page
+GET  /debug/windows
+GET  /debug/logs
 POST /debug/tap
 POST /debug/switch
+POST /debug/text/set
+POST /debug/text/type
 ```
 
-The bridge pairs well with LookinServer for visual hierarchy inspection, while this Pod provides semantic page IDs, stable element IDs, and safe action execution through existing UIKit controls.
+The bridge provides semantic page IDs, stable element IDs, UIWindow/UIView hierarchy inspection, safe UIKit actions, and an in-memory log pool. It does not depend on LookinServer.
 
 ## Podfile
 
@@ -39,7 +43,7 @@ target 'YourApp' do
 end
 ```
 
-`LookDebugBridge.podspec` depends on `LookinServer/Swift`.
+The Pod does not depend on LookinServer. Logs are process-local and disappear when the App exits.
 
 ## Start
 

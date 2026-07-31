@@ -26,12 +26,12 @@ final class LookDebugBridgeServer {
         }
         listener.stateUpdateHandler = { state in
             if case let .failed(error) = state {
-                print("LookDebugBridgeServer failed: \(error)")
+                LookDebugBridge.log("server failed: \(error)", level: "error", category: "bridge")
             }
         }
         listener.start(queue: queue)
         self.listener = listener
-        print("LookDebugBridge listening on \(port)")
+        LookDebugBridge.log("listening on \(port)", category: "bridge")
     }
 
     private func handle(
@@ -43,7 +43,7 @@ final class LookDebugBridgeServer {
             guard let self else { return }
 
             if let error {
-                print("LookDebugBridgeServer receive error: \(error)")
+                LookDebugBridge.log("receive error: \(error)", level: "error", category: "bridge")
                 connection.cancel()
                 return
             }
@@ -87,7 +87,7 @@ final class LookDebugBridgeServer {
             guard let self else { return }
 
             if let error {
-                print("LookDebugBridgeServer receive error: \(error)")
+                LookDebugBridge.log("receive error: \(error)", level: "error", category: "bridge")
                 connection.cancel()
                 return
             }
@@ -125,6 +125,20 @@ final class LookDebugBridgeServer {
             switch (request.method, request.path) {
             case ("GET", "/ping"):
                 return try router.ping()
+            case ("GET", "/debug/logs"):
+                return try await router.logs(
+                    query: request.queryValue("query"),
+                    level: request.queryValue("level"),
+                    category: request.queryValue("category"),
+                    limit: request.queryInt("limit", default: 500),
+                    waitMs: request.queryInt("wait_ms", default: 0)
+                )
+            case ("GET", "/debug/windows"):
+                return try router.windows(
+                    depth: request.queryInt("depth", default: 8),
+                    includeHidden: request.queryBool("include_hidden", default: false),
+                    maxNodes: request.queryInt("max_nodes", default: 2_000)
+                )
             case ("GET", "/debug/page"):
                 return try router.page(currentViewController: currentViewControllerProvider())
             case ("POST", "/debug/tap"):
@@ -139,6 +153,23 @@ final class LookDebugBridgeServer {
                     request: payload,
                     currentViewController: currentViewControllerProvider()
                 )
+            case ("POST", "/debug/text/set"):
+                let payload = try JSONDecoder().decode(LookDebugTextRequest.self, from: request.body)
+                return try router.setText(
+                    request: payload,
+                    appending: false,
+                    currentViewController: currentViewControllerProvider()
+                )
+            case ("POST", "/debug/text/type"):
+                let payload = try JSONDecoder().decode(LookDebugTextRequest.self, from: request.body)
+                return try router.setText(
+                    request: payload,
+                    appending: true,
+                    currentViewController: currentViewControllerProvider()
+                )
+            case ("POST", "/debug/runtime/node"):
+                let payload = try JSONDecoder().decode(LookDebugRuntimeNodeRequest.self, from: request.body)
+                return try router.runtimeNode(request: payload)
             default:
                 return try errorResponse(statusCode: 404, error: "not_found")
             }
@@ -213,14 +244,14 @@ final class LookDebugBridgeServer {
         }
     }
 }
-
 private struct ParsedLookDebugHTTPRequest {
     let method: String
     let path: String
+    let queryItems: [URLQueryItem]
     let body: Data
 
     init(data: Data) throws {
-        guard let string = String(data: data, encoding: .utf8) else {
+        guard String(data: data, encoding: .utf8) != nil else {
             throw ParseError.invalidEncoding
         }
 
@@ -240,7 +271,13 @@ private struct ParsedLookDebugHTTPRequest {
         }
 
         method = String(tokens[0])
-        path = String(tokens[1])
+        let rawPath = String(tokens[1])
+        guard let components = URLComponents(string: "http://localhost\(rawPath)"),
+              let parsedPath = components.path.isEmpty ? nil : components.path else {
+            throw ParseError.malformedRequest
+        }
+        path = parsedPath
+        queryItems = components.queryItems ?? []
         let contentLength = lines
             .compactMap { line -> Int? in
                 let parts = line.split(separator: ":", maxSplits: 1).map {
@@ -261,5 +298,21 @@ private struct ParsedLookDebugHTTPRequest {
     enum ParseError: Error {
         case invalidEncoding
         case malformedRequest
+    }
+
+    func queryValue(_ name: String) -> String? {
+        queryItems.first { $0.name == name }?.value
+    }
+
+    func queryInt(_ name: String, default fallback: Int) -> Int {
+        guard let value = queryValue(name), let parsed = Int(value) else { return fallback }
+        return parsed
+    }
+
+    func queryBool(_ name: String, default fallback: Bool) -> Bool {
+        guard let value = queryValue(name)?.lowercased() else { return fallback }
+        if value == "1" || value == "true" || value == "yes" { return true }
+        if value == "0" || value == "false" || value == "no" { return false }
+        return fallback
     }
 }
