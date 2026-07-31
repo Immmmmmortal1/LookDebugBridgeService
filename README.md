@@ -1,4 +1,4 @@
-# LookDebugBridge
+# LookDebugBridgeService
 
 `LookDebugBridge` is a Debug-only iOS bridge for AI/script-driven UI inspection, control, and temporary App logs.
 
@@ -26,7 +26,7 @@ target 'YourApp' do
   use_frameworks!
 
   pod 'LookDebugBridge',
-      :path => '../LookDebugBridge',
+      :path => '../LookDebugBridgeService',
       :configurations => ['Debug']
 end
 ```
@@ -38,7 +38,7 @@ target 'YourApp' do
   use_frameworks!
 
   pod 'LookDebugBridge',
-      :git => 'git@github.com:Immmmmmortal1/LookDebugBridge.git',
+      :git => 'git@github.com:Immmmmmortal1/LookDebugBridgeService.git',
       :configurations => ['Debug']
 end
 ```
