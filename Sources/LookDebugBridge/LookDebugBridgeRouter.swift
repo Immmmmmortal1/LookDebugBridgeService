@@ -34,10 +34,15 @@ struct LookDebugBridgeRouter {
             let executor = LookDebugActionExecutor(registry: resolvedPage.registry)
             try executor.validateTappable(id: request.id)
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                Task { @MainActor in
-                    try? executor.tap(id: request.id)
-                }
+            // 同步执行 tap，捕获真实结果（错误透传，不吞错误）
+            // 原 50ms asyncAfter 会丢失 tap 失败信息，改为立即执行
+            do {
+                try executor.tap(id: request.id)
+            } catch {
+                return try jsonResponse(
+                    statusCode: 500,
+                    payload: LookDebugTapResponse(success: false, id: request.id, error: "tap_failed")
+                )
             }
 
             return try jsonResponse(
@@ -116,14 +121,29 @@ struct LookDebugBridgeRouter {
         do {
             let resolvedPage = try pageProvider.resolvedPage(for: currentViewController)
             let executor = LookDebugActionExecutor(registry: resolvedPage.registry)
-            let finalText = try executor.setText(id: request.id, text: request.text, appending: appending)
+            let result = try executor.setText(id: request.id, text: request.text, appending: appending)
+
+            // secure 字段不回显明文，返回长度 + redacted=true（兼容：旧调用方忽略未知字段）
+            if result.isSecure {
+                return try jsonResponse(
+                    statusCode: 200,
+                    payload: LookDebugTextResponse(
+                        success: true,
+                        id: request.id,
+                        text: nil,
+                        error: nil,
+                        length: result.finalText.count,
+                        redacted: true
+                    )
+                )
+            }
 
             return try jsonResponse(
                 statusCode: 200,
                 payload: LookDebugTextResponse(
                     success: true,
                     id: request.id,
-                    text: finalText,
+                    text: result.finalText,
                     error: nil
                 )
             )

@@ -57,6 +57,19 @@ struct LookDebugTextResponse: Codable, Equatable {
     let id: String?
     let text: String?
     let error: String?
+    /// secure 字段时不回显明文，仅返回长度（兼容字段，旧调用方可忽略）
+    let length: Int?
+    /// secure 字段时为 true，标识响应已脱敏
+    let redacted: Bool?
+
+    init(success: Bool, id: String?, text: String?, error: String?, length: Int? = nil, redacted: Bool? = nil) {
+        self.success = success
+        self.id = id
+        self.text = text
+        self.error = error
+        self.length = length
+        self.redacted = redacted
+    }
 }
 
 struct LookDebugRuntimeNodeRequest: Codable, Equatable {

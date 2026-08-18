@@ -18,11 +18,24 @@ public final class LookDebugBridge {
         return "local"
     }()
 
+    /// 桥接服务对外状态：idle → starting → ready / failed；failed 可重试
+    public enum State: Equatable {
+        case idle
+        case starting
+        case ready
+        case failed
+    }
+
     private let server: LookDebugBridgeServer
-    private var hasStarted = false
+    private var state: State = .idle
 
     public convenience init(port: UInt16 = 37777) {
-        self.init(server: LookDebugBridgeServer(port: port))
+        // 可选 token：环境变量 LOOKDEBUG_TOKEN 配置后所有接口需校验 X-LookDebug-Token
+        // 未配置时全部放行（兼容模式，保持现有用户不受影响）
+        let token = ProcessInfo.processInfo.environment["LOOKDEBUG_TOKEN"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedToken = (token?.isEmpty == false) ? token : nil
+        self.init(server: LookDebugBridgeServer(port: port, token: normalizedToken))
     }
 
     public nonisolated static func log(
@@ -43,24 +56,64 @@ public final class LookDebugBridge {
         self.server = server
     }
 
+    /// 当前桥接状态（只读）
+    public var currentState: State { state }
+
     public func startIfNeeded() {
-        guard !hasStarted else { return }
-        hasStarted = true
+        // Release 构建：库内二道防线，调用方应已 #if DEBUG 包裹
+        #if !DEBUG
+        print("[LookDebugBridge] DEBUG-only, skipped")
+        return
+        #endif
+
+        // 仅 idle / failed 状态可启动；ready / starting 直接返回避免重复
+        guard state == .idle || state == .failed else { return }
+        state = .starting
 
         LookDebugAccessibilityInstaller.installIfNeeded()
         do {
-            try server.start { [weak self] in
-                self?.currentViewController()
-            }
-            Self.log("LookDebugBridge ready", category: "bridge")
-            #if DEBUG
-            print("[LookDebugBridge] ready")
-            #endif
+            try server.start(
+                currentViewControllerProvider: { [weak self] in
+                    self?.currentViewController()
+                },
+                onStateChange: { [weak self] serverState in
+                    self?.handleServerState(serverState)
+                }
+            )
         } catch {
+            state = .failed
             Self.log("LookDebugBridge failed to start: \(error)", level: "error", category: "bridge")
             #if DEBUG
             print("[LookDebugBridge] FAILED to start: \(error)")
             #endif
+        }
+    }
+
+    /// 处理 NWListener 状态变化：.ready 才标记启动成功；.failed/.cancelled 允许重试
+    /// 双重保险：即使 server 端漏过上报 cancelled，这里也确保 failed 状态不被覆盖
+    private func handleServerState(_ serverState: LookDebugBridgeServer.State) {
+        switch serverState {
+        case .ready:
+            // ready 不是终态，允许后续 failed
+            state = .ready
+            Self.log("LookDebugBridge ready", category: "bridge")
+            #if DEBUG
+            print("[LookDebugBridge] ready")
+            #endif
+        case .failed:
+            // failed 是终态，稳定保持，允许 startIfNeeded 重试
+            state = .failed
+            #if DEBUG
+            print("[LookDebugBridge] listener failed, can retry startIfNeeded")
+            #endif
+        case .cancelled:
+            // cancelled 是终态；仅在未进入 failed 时回到 idle（允许重试）
+            // server 端已用 reachedTerminalState 保证 failed 后不会上报 cancelled，此处为双重保险
+            if state != .failed {
+                state = .idle
+            }
+        case .idle, .starting:
+            break
         }
     }
 
