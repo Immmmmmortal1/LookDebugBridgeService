@@ -53,8 +53,14 @@ public final class LookDebugBridge {
                 self?.currentViewController()
             }
             Self.log("LookDebugBridge ready", category: "bridge")
+            #if DEBUG
+            print("[LookDebugBridge] ready")
+            #endif
         } catch {
             Self.log("LookDebugBridge failed to start: \(error)", level: "error", category: "bridge")
+            #if DEBUG
+            print("[LookDebugBridge] FAILED to start: \(error)")
+            #endif
         }
     }
 

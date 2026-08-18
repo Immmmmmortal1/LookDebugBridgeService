@@ -20,11 +20,15 @@ final class LookDebugBridgeServer {
         guard listener == nil else { return }
 
         let parameters = NWParameters.tcp
+        parameters.allowLocalEndpointReuse = true
         let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
         listener.newConnectionHandler = { [weak self] connection in
             self?.handle(connection: connection, currentViewControllerProvider: currentViewControllerProvider)
         }
         listener.stateUpdateHandler = { state in
+            #if DEBUG
+            print("[LookDebugBridge] listener state: \(state)")
+            #endif
             if case let .failed(error) = state {
                 LookDebugBridge.log("server failed: \(error)", level: "error", category: "bridge")
             }
