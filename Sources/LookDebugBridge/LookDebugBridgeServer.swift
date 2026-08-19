@@ -271,6 +271,10 @@ final class LookDebugBridgeServer {
             case ("POST", "/debug/runtime/node"):
                 let payload = try JSONDecoder().decode(LookDebugRuntimeNodeRequest.self, from: request.body)
                 return try router.runtimeNode(request: payload)
+            case ("POST", "/debug/session"):
+                // 运行时注入会话 ID（修复真机 devicectl launch 无法注入环境变量导致 sessionID 恒 local）
+                let payload = try JSONDecoder().decode(LookDebugSessionRequest.self, from: request.body)
+                return try router.setSession(request: payload)
             default:
                 return try errorResponse(statusCode: 404, error: "not_found")
             }

@@ -1,10 +1,32 @@
 import UIKit
 
+/// 会话 ID 线程安全存储盒：NSLock 保护读写
+/// 用 `static let` 持有不可变引用、内部 var 由 lock 保护，规避 nonisolated static var 并发告警
+/// 真机 App 经 devicectl launch 无法注入环境变量，sessionID 需运行时可注入，故存储盒为可变
+fileprivate final class LookDebugSessionBox {
+    private let lock = NSLock()
+    private var stored: String
+
+    init(_ initial: String) { self.stored = initial }
+
+    func get() -> String {
+        lock.lock(); defer { lock.unlock() }
+        return stored
+    }
+
+    func set(_ newValue: String) {
+        lock.lock(); defer { lock.unlock() }
+        stored = newValue
+    }
+}
+
 @MainActor
 public final class LookDebugBridge {
     public static let shared = LookDebugBridge()
 
-    public nonisolated static let sessionID = {
+    /// 会话 ID 初始值：从进程环境变量读取，读不到则 "local"
+    /// 真机 App 经 devicectl launch 无法注入环境变量，运行时由 POST /debug/session 注入真实会话 id
+    private nonisolated static let sessionBox = LookDebugSessionBox({
         let environment = ProcessInfo.processInfo.environment
         if let value = environment["DEV_FLOW_SESSION_ID"], value.isEmpty == false {
             return value
@@ -16,7 +38,22 @@ public final class LookDebugBridge {
             return value
         }
         return "local"
-    }()
+    }())
+
+    /// 当前会话 ID（线程安全，可被运行时注入）
+    /// - 初始值见 sessionBox：环境变量 DEV_FLOW_SESSION_ID / CODEX_THREAD_ID / CURSOR_CONVERSATION_ID
+    /// - Mac 侧 MCP 通过 POST /debug/session 在确认桥后注入真实会话 id（修复真机 sessionID 恒为 local 的问题）
+    public nonisolated static var sessionID: String {
+        sessionBox.get()
+    }
+
+    /// 运行时注入会话 ID：trim 后非空才写入，空值忽略（保持现有值不变）
+    /// 由 router 在 @MainActor 上下文调用，方法本身用 NSLock 保证跨线程安全
+    public nonisolated static func setSessionID(_ newValue: String) {
+        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        sessionBox.set(trimmed)
+    }
 
     /// 桥接服务对外状态：idle → starting → ready / failed；failed 可重试
     public enum State: Equatable {

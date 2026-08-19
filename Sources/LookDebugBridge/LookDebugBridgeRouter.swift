@@ -176,6 +176,23 @@ struct LookDebugBridgeRouter {
         return try jsonResponse(statusCode: statusCode, payload: payload)
     }
 
+    /// 运行时注入会话 ID：校验非空且长度 ≤ 128，非法返回 400 invalid_session_id
+    /// 合法则调用 LookDebugBridge.setSessionID，返回 200 + 新 sessionID
+    func setSession(request: LookDebugSessionRequest) throws -> LookDebugHTTPResponse {
+        let trimmed = request.sessionID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 128 else {
+            return try jsonResponse(
+                statusCode: 400,
+                payload: LookDebugErrorResponse(success: false, error: "invalid_session_id")
+            )
+        }
+        LookDebugBridge.setSessionID(trimmed)
+        return try jsonResponse(
+            statusCode: 200,
+            payload: LookDebugSessionResponse(success: true, sessionID: trimmed)
+        )
+    }
+
     func windows(depth: Int, includeHidden: Bool, maxNodes: Int) throws -> LookDebugHTTPResponse {
         let payload = LookDebugRuntimeInspector().windowTree(
             depth: depth,

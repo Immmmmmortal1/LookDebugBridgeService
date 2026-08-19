@@ -187,6 +187,15 @@ struct LookDebugErrorResponse: Codable, Equatable {
     let error: String
 }
 
+struct LookDebugSessionRequest: Codable, Equatable {
+    let sessionID: String
+}
+
+struct LookDebugSessionResponse: Codable, Equatable {
+    let success: Bool
+    let sessionID: String
+}
+
 struct LookDebugHTTPResponse: Equatable {
     let statusCode: Int
     let body: Data
