@@ -137,7 +137,7 @@ git config core.hooksPath .githooks
 发布约束：
 
 - 更新 Pod 代码时，必须同步更新 `LookDebugBridge.podspec` 的 `s.version`。
-- Podspec 的 `s.version`、Git tag 和发布版本号必须完全一致；例如 tag 为 `0.1.13` 时，tag 指向的提交内 Podspec 必须也是 `0.1.13`。
+- Podspec 的 `s.version`、Git tag 和发布版本号必须完全一致；例如 tag 为 `0.1.12` 时，tag 指向的提交内 Podspec 必须也是 `0.1.12`。
 - 创建 tag 前必须检查 `git show <版本>:LookDebugBridge.podspec`，确认 tag 内的 Podspec 版本与 tag 一致，避免 CocoaPods 解析出旧版本。
 - 如果已发布的 tag 指向错误版本，必须先修正 Podspec、提交，再明确校正对应 tag，并清理使用方的 CocoaPods 外部依赖缓存后重新解析。
 
