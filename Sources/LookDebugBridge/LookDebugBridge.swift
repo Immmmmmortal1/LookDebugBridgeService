@@ -96,6 +96,9 @@ public final class LookDebugBridge {
     /// 当前桥接状态（只读）
     public var currentState: State { state }
 
+    /// 当前监听端口（只读，与 init 时传入的 port 一致；默认 37777）
+    public var activePort: UInt16 { server.activePort }
+
     public func startIfNeeded() {
         // Release 构建：库内二道防线，调用方应已 #if DEBUG 包裹
         #if !DEBUG

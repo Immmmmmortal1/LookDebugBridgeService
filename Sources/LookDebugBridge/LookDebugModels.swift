@@ -25,6 +25,15 @@ struct LookDebugPingResponse: Codable, Equatable {
     let ok: Bool
 }
 
+/// /debug/identity 响应：用于 Mac 侧 preflight 校验目标 App 是否匹配预期
+/// sessionID 是上下文标记（POST /debug/session 注入），不是并发隔离依据
+struct LookDebugIdentityResponse: Codable, Equatable {
+    let ok: Bool
+    let bundleID: String
+    let sessionID: String
+    let port: UInt16
+}
+
 struct LookDebugTapRequest: Codable, Equatable {
     let id: String
 }

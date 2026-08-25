@@ -13,6 +13,22 @@ struct LookDebugBridgeRouter {
         try jsonResponse(statusCode: 200, payload: LookDebugPingResponse(ok: true))
     }
 
+    /// 只读 identity：返回 bundleID / sessionID / port
+    /// - sessionID 由 POST /debug/session 运行时注入（初始为环境变量或 "local"）
+    /// - sessionID 是上下文标记（用于日志/identity 匹配），不是并发隔离依据
+    /// - 多个 MCP 会话并发控制同一 App 仍需后续 ownership/lease 机制
+    func identity() throws -> LookDebugHTTPResponse {
+        try jsonResponse(
+            statusCode: 200,
+            payload: LookDebugIdentityResponse(
+                ok: true,
+                bundleID: LookDebugBridge.bundleID,
+                sessionID: LookDebugBridge.sessionID,
+                port: LookDebugBridge.shared.activePort
+            )
+        )
+    }
+
     func page(currentViewController: UIViewController?) throws -> LookDebugHTTPResponse {
         do {
             let payload = try pageProvider.payload(for: currentViewController)

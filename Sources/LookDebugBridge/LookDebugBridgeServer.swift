@@ -21,6 +21,8 @@ final class LookDebugBridgeServer {
     private let queue = DispatchQueue(label: "com.shuxia.lookdebug.bridge")
     private var listener: NWListener?
     private var stateHandler: ((State) -> Void)?
+    /// 当前监听端口（只读暴露，供 /debug/identity 等只读接口回读）
+    var activePort: UInt16 { port }
     /// listener 是否已进入终态（failed/cancelled），幂等去重避免 failed→cancelled 竞态覆盖
     /// 仅在 queue 线程（handleListenerState）读写，避免跨线程竞争
     private var reachedTerminalState = false
@@ -226,6 +228,10 @@ final class LookDebugBridgeServer {
             switch (request.method, request.path) {
             case ("GET", "/ping"):
                 return try router.ping()
+            case ("GET", "/debug/identity"):
+                // 只读 identity：返回 bundleID / sessionID / port，用于 Mac 侧 preflight 校验目标 App
+                // sessionID 是上下文标记（POST /debug/session 注入），不作为并发隔离依据
+                return try router.identity()
             case ("GET", "/debug/logs"):
                 return try await router.logs(
                     query: request.queryValue("query"),
