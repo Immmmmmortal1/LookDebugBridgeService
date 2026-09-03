@@ -291,6 +291,42 @@ struct LookDebugBridgeRouter {
         return try jsonResponse(statusCode: 200, payload: payload)
     }
 
+    /// GET /debug/shared-logs：读取 App Group 共享容器下的日志文件，
+    /// 用于跨进程日志汇集（如 widget extension 写入的日志主 app 无法直接捕获）。
+    /// - Parameters:
+    ///   - appGroup: App Group identifier（如 "group.com.cqxm.ours.lovon"）
+    ///   - path: 相对于 App Group 容器根的文件路径（如 "Logs/shared.log"）
+    ///   - limit: 返回最后 N 行（默认 200，避免全量传输大文件）
+    func sharedLogs(appGroup: String, path: String, limit: Int) throws -> LookDebugHTTPResponse {
+        guard let root = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroup
+        ) else {
+            return try jsonResponse(
+                statusCode: 404,
+                payload: LookDebugSharedLogsResponse(success: false, lines: [], error: "app_group_unavailable")
+            )
+        }
+        let fileURL = root.appendingPathComponent(path)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return try jsonResponse(
+                statusCode: 404,
+                payload: LookDebugSharedLogsResponse(success: false, lines: [], error: "file_not_found")
+            )
+        }
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return try jsonResponse(
+                statusCode: 500,
+                payload: LookDebugSharedLogsResponse(success: false, lines: [], error: "read_failed")
+            )
+        }
+        let allLines = content.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let lines = allLines.count > limit ? Array(allLines.suffix(limit)) : allLines
+        return try jsonResponse(
+            statusCode: 200,
+            payload: LookDebugSharedLogsResponse(success: true, lines: lines, error: nil)
+        )
+    }
+
     private func jsonResponse<T: Encodable>(statusCode: Int, payload: T) throws -> LookDebugHTTPResponse {
         let data = try JSONEncoder().encode(payload)
         return LookDebugHTTPResponse(statusCode: statusCode, body: data)
@@ -302,4 +338,11 @@ struct LookDebugLogFilterResponse: Codable, Equatable {
     let success: Bool
     let filter: LookDebugLogOutputFilter?
     let active: Bool
+}
+
+/// /debug/shared-logs 响应体
+struct LookDebugSharedLogsResponse: Codable {
+    let success: Bool
+    let lines: [String]
+    let error: String?
 }

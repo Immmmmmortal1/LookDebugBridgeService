@@ -292,6 +292,13 @@ final class LookDebugBridgeServer {
                 // 运行时注入会话 ID（修复真机 devicectl launch 无法注入环境变量导致 sessionID 恒 local）
                 let payload = try JSONDecoder().decode(LookDebugSessionRequest.self, from: request.body)
                 return try router.setSession(request: payload)
+            case ("GET", "/debug/shared-logs"):
+                // 读取 App Group 共享容器下的日志文件（跨进程日志汇集，如 widget 写入的日志）
+                return try router.sharedLogs(
+                    appGroup: request.queryValue("app_group") ?? "",
+                    path: request.queryValue("path") ?? "",
+                    limit: request.queryInt("limit", default: 200)
+                )
             default:
                 return try errorResponse(statusCode: 404, error: "not_found")
             }
