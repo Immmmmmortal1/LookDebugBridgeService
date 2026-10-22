@@ -168,6 +168,7 @@ struct LookDebugRuntimeInspector {
         let textField = view as? UITextField
         let textView = view as? UITextView
         let imageView = view as? UIImageView
+        let button = view as? UIButton
         let control = view as? UIControl
 
         return LookDebugRuntimeNodeDetail(
@@ -205,9 +206,9 @@ struct LookDebugRuntimeInspector {
             textColor: colorPayload(label?.textColor ?? textField?.textColor ?? textView?.textColor),
             textAlignment: textAlignmentName(label?.textAlignment ?? textField?.textAlignment ?? textView?.textAlignment),
             numberOfLines: label?.numberOfLines,
-            imageAssetName: imageView?.lookDebugAssetName,
-            imageSize: imageView?.image.map { sizePayload($0.size) },
-            imageRenderingMode: imageView?.image.map { imageRenderingModeName($0.renderingMode) },
+            imageAssetName: imageView?.lookDebugAssetName ?? button?.lookDebugAssetName,
+            imageSize: (imageView?.image ?? button?.image(for: .normal)).map { sizePayload($0.size) },
+            imageRenderingMode: (imageView?.image ?? button?.image(for: .normal)).map { imageRenderingModeName($0.renderingMode) },
             controlEnabled: control?.isEnabled,
             controlSelected: control?.isSelected,
             controlHighlighted: control?.isHighlighted
@@ -353,7 +354,9 @@ private final class TreeBuildState {
 
 private var lookDebugAssetNameKey: UInt8 = 0
 
-public extension UIImageView {
+/// 图片资源名声明：UIImageView 与 UIButton（image(for:)）共用同一关联存储，
+/// 让 Mac 侧 `imageAssetName` 对两者都可用。
+public extension UIView {
     var lookDebugAssetName: String? {
         get {
             objc_getAssociatedObject(self, &lookDebugAssetNameKey) as? String
