@@ -197,6 +197,94 @@ struct LookDebugRuntimeNodeDetail: Codable, Equatable {
     let controlHighlighted: Bool?
 }
 
+extension LookDebugRuntimeNodeDetail {
+    /// 显式编码全部字段：不可用字段输出 null 而不是省略键。
+    /// 这样 Mac 侧能区分「桥支持该字段但本节点不适用（null）」与「桥不支持该字段（键缺失）」。
+    enum CodingKeys: String, CodingKey {
+        case anchor
+        case accessibilityIdentifier
+        case accessibilityLabel
+        case accessibilityValue
+        case className
+        case classChain
+        case frameInWindow
+        case bounds
+        case hidden
+        case alpha
+        case userInteractionEnabled
+        case backgroundColor
+        case tintColor
+        case contentMode
+        case cornerRadius
+        case masksToBounds
+        case rotationDegrees
+        case anchorPoint
+        case gestureCount
+        case borderWidth
+        case borderColor
+        case shadowColor
+        case shadowOpacity
+        case shadowRadius
+        case shadowOffset
+        case text
+        case placeholder
+        case fontName
+        case fontSize
+        case textColor
+        case textAlignment
+        case numberOfLines
+        case imageAssetName
+        case imageSize
+        case imageRenderingMode
+        case controlEnabled
+        case controlSelected
+        case controlHighlighted
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(anchor, forKey: .anchor)
+        try container.encode(accessibilityIdentifier, forKey: .accessibilityIdentifier)
+        try container.encode(accessibilityLabel, forKey: .accessibilityLabel)
+        try container.encode(accessibilityValue, forKey: .accessibilityValue)
+        try container.encode(className, forKey: .className)
+        try container.encode(classChain, forKey: .classChain)
+        try container.encode(frameInWindow, forKey: .frameInWindow)
+        try container.encode(bounds, forKey: .bounds)
+        try container.encode(hidden, forKey: .hidden)
+        try container.encode(alpha, forKey: .alpha)
+        try container.encode(userInteractionEnabled, forKey: .userInteractionEnabled)
+        try container.encode(backgroundColor, forKey: .backgroundColor)
+        try container.encode(tintColor, forKey: .tintColor)
+        try container.encode(contentMode, forKey: .contentMode)
+        try container.encode(cornerRadius, forKey: .cornerRadius)
+        try container.encode(masksToBounds, forKey: .masksToBounds)
+        try container.encode(rotationDegrees, forKey: .rotationDegrees)
+        try container.encode(anchorPoint, forKey: .anchorPoint)
+        try container.encode(gestureCount, forKey: .gestureCount)
+        try container.encode(borderWidth, forKey: .borderWidth)
+        try container.encode(borderColor, forKey: .borderColor)
+        try container.encode(shadowColor, forKey: .shadowColor)
+        try container.encode(shadowOpacity, forKey: .shadowOpacity)
+        try container.encode(shadowRadius, forKey: .shadowRadius)
+        try container.encode(shadowOffset, forKey: .shadowOffset)
+        try container.encode(text, forKey: .text)
+        try container.encode(placeholder, forKey: .placeholder)
+        try container.encode(fontName, forKey: .fontName)
+        try container.encode(fontSize, forKey: .fontSize)
+        try container.encode(textColor, forKey: .textColor)
+        try container.encode(textAlignment, forKey: .textAlignment)
+        try container.encode(numberOfLines, forKey: .numberOfLines)
+        try container.encode(imageAssetName, forKey: .imageAssetName)
+        try container.encode(imageSize, forKey: .imageSize)
+        try container.encode(imageRenderingMode, forKey: .imageRenderingMode)
+        try container.encode(controlEnabled, forKey: .controlEnabled)
+        try container.encode(controlSelected, forKey: .controlSelected)
+        try container.encode(controlHighlighted, forKey: .controlHighlighted)
+    }
+}
+
+
 struct LookDebugRuntimeNodeResponse: Codable, Equatable {
     let anchor: String
     let found: Bool
