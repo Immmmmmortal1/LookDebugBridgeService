@@ -36,11 +36,38 @@ struct LookDebugIdentityResponse: Codable, Equatable {
 
 struct LookDebugTapRequest: Codable, Equatable {
     let id: String
+    /// 重复点击次数，1...20，缺省 1
+    let `repeat`: Int?
 }
 
 struct LookDebugTapResponse: Codable, Equatable {
     let success: Bool
     let id: String?
+    /// 请求的重复次数（回显），缺省请求时为 1
+    let `repeat`: Int?
+    /// 实际成功触发的次数；success 仅在 invoked == repeat 时为 true
+    let invoked: Int?
+    let error: String?
+}
+
+/// POST /debug/scroll 请求：按 anchor 定位 UIScrollView 后滚动
+/// - to: "top" | "bottom"，与 contentOffset / offsetDelta 互斥
+/// - contentOffset: 绝对偏移
+/// - offsetDelta: 相对当前偏移的增量
+struct LookDebugScrollRequest: Codable, Equatable {
+    let anchor: String
+    let to: String?
+    let contentOffset: LookDebugRuntimePoint?
+    let offsetDelta: LookDebugRuntimePoint?
+    let animated: Bool?
+}
+
+struct LookDebugScrollResponse: Codable, Equatable {
+    let success: Bool
+    let anchor: String?
+    let contentOffset: LookDebugRuntimePoint?
+    let contentSize: LookDebugRuntimeSize?
+    let adjustedContentInset: LookDebugRuntimeInsets?
     let error: String?
 }
 
@@ -97,6 +124,18 @@ struct LookDebugRuntimeSize: Codable, Equatable {
     let height: Double
 }
 
+struct LookDebugRuntimePoint: Codable, Equatable {
+    let x: Double
+    let y: Double
+}
+
+struct LookDebugRuntimeInsets: Codable, Equatable {
+    let top: Double
+    let left: Double
+    let bottom: Double
+    let right: Double
+}
+
 struct LookDebugRuntimeColor: Codable, Equatable {
     let red: Double
     let green: Double
@@ -131,6 +170,12 @@ struct LookDebugRuntimeNodeDetail: Codable, Equatable {
     let contentMode: String
     let cornerRadius: Double
     let masksToBounds: Bool
+    /// 视图旋转角度（度），由 transform 推导
+    let rotationDegrees: Double
+    /// layer.anchorPoint
+    let anchorPoint: LookDebugRuntimePoint
+    /// 已挂载的手势识别器数量
+    let gestureCount: Int
     let borderWidth: Double
     let borderColor: LookDebugRuntimeColor?
     let shadowColor: LookDebugRuntimeColor?

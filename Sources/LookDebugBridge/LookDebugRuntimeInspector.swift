@@ -187,6 +187,9 @@ struct LookDebugRuntimeInspector {
             contentMode: String(describing: view.contentMode),
             cornerRadius: Double(layer.cornerRadius),
             masksToBounds: layer.masksToBounds,
+            rotationDegrees: rotationDegrees(for: view),
+            anchorPoint: pointPayload(layer.anchorPoint),
+            gestureCount: view.gestureRecognizers?.count ?? 0,
             borderWidth: Double(layer.borderWidth),
             borderColor: colorPayload(layer.borderColor.map { UIColor(cgColor: $0) }),
             shadowColor: colorPayload(layer.shadowColor.map { UIColor(cgColor: $0) }),
@@ -263,6 +266,22 @@ struct LookDebugRuntimeInspector {
 
     private func sizePayload(_ size: CGSize) -> LookDebugRuntimeSize {
         LookDebugRuntimeSize(width: Double(size.width), height: Double(size.height))
+    }
+
+    private func pointPayload(_ point: CGPoint) -> LookDebugRuntimePoint {
+        LookDebugRuntimePoint(x: Double(point.x), y: Double(point.y))
+    }
+
+    /// 从 view.transform 推导旋转角度（度）。
+    /// 纯缩放/平移的 transform 还原为 0；含旋转时按 atan2(b, a) 计算并归一化到 (-180, 180]。
+    private func rotationDegrees(for view: UIView) -> Double {
+        let transform = view.transform
+        let radians = atan2(Double(transform.b), Double(transform.a))
+        var degrees = radians * 180.0 / .pi
+        if degrees <= -180.0 { degrees += 360.0 }
+        if degrees > 180.0 { degrees -= 360.0 }
+        // 消除浮点噪声，避免出现 -0.0
+        return degrees == 0 ? 0 : degrees
     }
 
     private func colorPayload(_ color: UIColor?) -> LookDebugRuntimeColor? {

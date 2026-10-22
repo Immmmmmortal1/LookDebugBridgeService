@@ -288,6 +288,17 @@ final class LookDebugBridgeServer {
             case ("POST", "/debug/runtime/node"):
                 let payload = try JSONDecoder().decode(LookDebugRuntimeNodeRequest.self, from: request.body)
                 return try router.runtimeNode(request: payload)
+            case ("GET", "/debug/runtime/node"):
+                // 只读变体：anchor 走 query，便于浏览器/脚本直接 GET
+                return try router.runtimeNode(
+                    request: LookDebugRuntimeNodeRequest(anchor: request.queryValue("anchor") ?? "")
+                )
+            case ("POST", "/debug/scroll"):
+                let payload = try JSONDecoder().decode(LookDebugScrollRequest.self, from: request.body)
+                return try router.scroll(
+                    request: payload,
+                    currentViewController: currentViewControllerProvider()
+                )
             case ("POST", "/debug/session"):
                 // 运行时注入会话 ID（修复真机 devicectl launch 无法注入环境变量导致 sessionID 恒 local）
                 let payload = try JSONDecoder().decode(LookDebugSessionRequest.self, from: request.body)

@@ -10,12 +10,36 @@ GET  /debug/identity
 GET  /debug/page
 GET  /debug/windows
 GET  /debug/logs
+GET  /debug/runtime/node?anchor=<id>     # 只读变体，等价于 POST 版本
 POST /debug/session
-POST /debug/tap
+POST /debug/tap                          # 可选 repeat: 1...20，返回 repeat / invoked
+POST /debug/scroll                       # 滚动 anchor 命中的 UIScrollView
 POST /debug/switch
 POST /debug/text/set
 POST /debug/text/type
 ```
+
+### /debug/tap
+
+```json
+{ "id": "login.authRetry", "repeat": 2 }
+```
+
+响应 `{ "success": true, "id": "...", "repeat": 2, "invoked": 2 }`。
+`success` 严格等于 `invoked == repeat`；`repeat` 越界时贴近到 `1...20` 并回显实际值。
+
+### /debug/scroll
+
+```json
+{ "anchor": "photo.scroll", "to": "bottom" }
+{ "anchor": "photo.scroll", "contentOffset": { "x": 0, "y": 240 } }
+{ "anchor": "photo.scroll", "offsetDelta": { "x": 0, "y": 120 }, "animated": false }
+```
+
+`anchor` 可以是 `UIScrollView` 本身或其任意子视图（向上查找最近的 `UIScrollView`）。
+`to` 支持 `top` / `bottom`，与 `contentOffset` / `offsetDelta` 互斥；三者都缺省时按 `top` 处理。
+响应回填 `contentOffset`、`contentSize`、`adjustedContentInset{top,left,bottom,right}`；
+目标不可滚动时返回 409 `not_scrollable`。
 
 The bridge provides semantic page IDs, stable element IDs, UIWindow/UIView hierarchy inspection, safe UIKit actions, and an in-memory log pool. It does not depend on LookinServer.
 

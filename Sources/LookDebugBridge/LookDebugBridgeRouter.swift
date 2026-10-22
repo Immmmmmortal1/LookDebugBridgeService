@@ -45,6 +45,8 @@ struct LookDebugBridgeRouter {
         request: LookDebugTapRequest,
         currentViewController: UIViewController?
     ) throws -> LookDebugHTTPResponse {
+        // repeat 缺省 1，越界值贴近到 1...20（越界不静默忽略，按上/下界执行并在响应里回显）
+        let repeatCount = max(1, min(request.repeat ?? 1, 20))
         do {
             let resolvedPage = try pageProvider.resolvedPage(for: currentViewController)
             let executor = LookDebugActionExecutor(registry: resolvedPage.registry)
@@ -52,18 +54,35 @@ struct LookDebugBridgeRouter {
 
             // 同步执行 tap，捕获真实结果（错误透传，不吞错误）
             // 原 50ms asyncAfter 会丢失 tap 失败信息，改为立即执行
+            var invoked = 0
             do {
-                try executor.tap(id: request.id)
+                for _ in 0..<repeatCount {
+                    try executor.tap(id: request.id)
+                    invoked += 1
+                }
             } catch {
+                // 中途失败：success 严格等于 invoked == repeat，失败次数如实回填
                 return try jsonResponse(
                     statusCode: 500,
-                    payload: LookDebugTapResponse(success: false, id: request.id, error: "tap_failed")
+                    payload: LookDebugTapResponse(
+                        success: invoked == repeatCount,
+                        id: request.id,
+                        repeat: repeatCount,
+                        invoked: invoked,
+                        error: "tap_failed"
+                    )
                 )
             }
 
             return try jsonResponse(
                 statusCode: 200,
-                payload: LookDebugTapResponse(success: true, id: request.id, error: nil)
+                payload: LookDebugTapResponse(
+                    success: invoked == repeatCount,
+                    id: request.id,
+                    repeat: repeatCount,
+                    invoked: invoked,
+                    error: nil
+                )
             )
         } catch LookDebugPageProviderError.pageUnavailable {
             return try jsonResponse(
@@ -73,17 +92,86 @@ struct LookDebugBridgeRouter {
         } catch LookDebugActionExecutorError.elementNotFound {
             return try jsonResponse(
                 statusCode: 404,
-                payload: LookDebugTapResponse(success: false, id: nil, error: "element_not_found")
+                payload: LookDebugTapResponse(
+                    success: false, id: nil, repeat: repeatCount, invoked: 0, error: "element_not_found"
+                )
             )
         } catch LookDebugActionExecutorError.unsupportedElementType {
             return try jsonResponse(
                 statusCode: 409,
-                payload: LookDebugTapResponse(success: false, id: nil, error: "unsupported_element_type")
+                payload: LookDebugTapResponse(
+                    success: false, id: nil, repeat: repeatCount, invoked: 0, error: "unsupported_element_type"
+                )
             )
         } catch {
             return try jsonResponse(
                 statusCode: 500,
-                payload: LookDebugTapResponse(success: false, id: nil, error: "action_failed")
+                payload: LookDebugTapResponse(
+                    success: false, id: nil, repeat: repeatCount, invoked: 0, error: "action_failed"
+                )
+            )
+        }
+    }
+
+    /// POST /debug/scroll：滚动 anchor 命中的 UIScrollView
+    func scroll(
+        request: LookDebugScrollRequest,
+        currentViewController: UIViewController?
+    ) throws -> LookDebugHTTPResponse {
+        let offset = request.contentOffset.map { CGPoint(x: $0.x, y: $0.y) }
+        let delta = request.offsetDelta.map { CGPoint(x: $0.x, y: $0.y) }
+        do {
+            let resolvedPage = try pageProvider.resolvedPage(for: currentViewController)
+            let executor = LookDebugActionExecutor(registry: resolvedPage.registry)
+            let result = try executor.scroll(
+                id: request.anchor,
+                to: request.to,
+                contentOffset: offset,
+                offsetDelta: delta,
+                animated: request.animated ?? false
+            )
+
+            return try jsonResponse(
+                statusCode: 200,
+                payload: LookDebugScrollResponse(
+                    success: true,
+                    anchor: request.anchor,
+                    contentOffset: LookDebugRuntimePoint(
+                        x: Double(result.contentOffset.x), y: Double(result.contentOffset.y)
+                    ),
+                    contentSize: LookDebugRuntimeSize(
+                        width: Double(result.contentSize.width), height: Double(result.contentSize.height)
+                    ),
+                    adjustedContentInset: LookDebugRuntimeInsets(
+                        top: Double(result.adjustedContentInset.top),
+                        left: Double(result.adjustedContentInset.left),
+                        bottom: Double(result.adjustedContentInset.bottom),
+                        right: Double(result.adjustedContentInset.right)
+                    ),
+                    error: nil
+                )
+            )
+        } catch LookDebugPageProviderError.pageUnavailable {
+            return try jsonResponse(
+                statusCode: 503,
+                payload: LookDebugErrorResponse(success: false, error: "page_unavailable")
+            )
+        } catch LookDebugActionExecutorError.elementNotFound {
+            return try jsonResponse(
+                statusCode: 404,
+                payload: LookDebugScrollResponse(
+                    success: false, anchor: nil, contentOffset: nil, contentSize: nil,
+                    adjustedContentInset: nil, error: "element_not_found"
+                )
+            )
+        } catch LookDebugActionExecutorError.notScrollable,
+                LookDebugActionExecutorError.unsupportedElementType {
+            return try jsonResponse(
+                statusCode: 409,
+                payload: LookDebugScrollResponse(
+                    success: false, anchor: nil, contentOffset: nil, contentSize: nil,
+                    adjustedContentInset: nil, error: "not_scrollable"
+                )
             )
         }
     }
